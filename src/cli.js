@@ -6,6 +6,7 @@ const { createLogger } = require('./logger');
 const { discover } = require('./discovery');
 const { ClickDriveClient } = require('./clickdriveClient');
 const { Migrator } = require('./migrator');
+const { stateFilePathFor, loadCheckpoint, CheckpointStore, resetCheckpoint } = require('./checkpoint');
 
 async function main(argv) {
   const inputPath = argv[2];
@@ -41,8 +42,25 @@ async function main(argv) {
     return 1;
   }
 
+  const stateFilePath = stateFilePathFor(absoluteInputPath);
+
+  if (config.resetState) {
+    resetCheckpoint(stateFilePath);
+    logger.info('CLICKDRIVE_RESET_STATE=true: checkpoint anterior descartado, migracao comecara do zero.');
+  }
+
+  const existingEntries = loadCheckpoint(stateFilePath);
+  if (existingEntries.size > 0) {
+    logger.info(`Checkpoint encontrado: retomando migracao (${existingEntries.size} item(ns) ja migrados em execucao anterior serao pulados).`);
+  }
+  const checkpoint = new CheckpointStore(stateFilePath, existingEntries);
+
   const client = new ClickDriveClient(config);
-  const migrator = new Migrator(client, logger);
+  const migrator = new Migrator(client, logger, checkpoint, {
+    concurrency: config.concurrency,
+    maxRetries: config.maxRetries,
+    retryBaseMs: config.retryBaseMs,
+  });
 
   let stats;
   try {
@@ -53,7 +71,7 @@ async function main(argv) {
   }
 
   logger.info(
-    `Migracao finalizada. Pastas criadas: ${stats.foldersCreated}. Arquivos enviados: ${stats.filesUploaded}. Duplicados (movidos localmente): ${stats.filesDuplicated}. Falhas: ${stats.filesFailed}. Log completo em ${logger.filePath}`
+    `Migracao finalizada. Pastas criadas: ${stats.foldersCreated} (retomadas: ${stats.foldersResumed}). Arquivos enviados: ${stats.filesUploaded} (retomados: ${stats.filesResumed}). Duplicados (movidos localmente): ${stats.filesDuplicated}. Falhas: ${stats.filesFailed}. Log completo em ${logger.filePath}`
   );
 
   return stats.filesFailed > 0 ? 1 : 0;

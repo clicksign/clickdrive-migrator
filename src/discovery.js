@@ -1,6 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { STATE_DIR_NAME } = require('./checkpoint');
+
+// Diretorios gerados pelo proprio script; nunca devem ser migrados como conteudo do usuario.
+const IGNORED_DIR_NAMES = new Set([STATE_DIR_NAME, 'logs']);
+
 function discover(inputPath) {
   const absolutePath = path.resolve(inputPath);
   const stat = fs.statSync(absolutePath);
@@ -21,6 +26,8 @@ function buildFolderNode(absolutePath) {
 
   const children = [];
   for (const entry of entries) {
+    if (entry.isDirectory() && IGNORED_DIR_NAMES.has(entry.name)) continue;
+
     const entryPath = path.join(absolutePath, entry.name);
     if (entry.isDirectory()) {
       children.push(buildFolderNode(entryPath));

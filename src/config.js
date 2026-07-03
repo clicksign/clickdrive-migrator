@@ -18,7 +18,16 @@ function loadConfig() {
   return {
     apiUrl: apiUrl.replace(/\/+$/, ''),
     token,
+    concurrency: parseIntEnv('CLICKDRIVE_CONCURRENCY', 4),
+    maxRetries: parseIntEnv('CLICKDRIVE_MAX_RETRIES', 3),
+    retryBaseMs: parseIntEnv('CLICKDRIVE_RETRY_BASE_MS', 500),
+    resetState: process.env.CLICKDRIVE_RESET_STATE === 'true',
   };
+}
+
+function parseIntEnv(name, fallback) {
+  const parsed = Number.parseInt(process.env[name], 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 module.exports = { loadConfig };

@@ -46,10 +46,26 @@ Copy-Item .env.example .env
 copy .env.example .env
 ```
 
-| Variável | Descrição |
-|---|---|
-| `CLICKDRIVE_API_URL` | URL base da api-clickdrive (ex: `http://localhost:8080`) |
-| `CLICKDRIVE_TOKEN` | Token de sessão do Tavola, sem o prefixo `Bearer` |
+| Variável | Obrigatória | Padrão | Descrição |
+|---|---|---|---|
+| `CLICKDRIVE_API_URL` | Sim | — | URL base da api-clickdrive (ex: `http://localhost:8080`) |
+| `CLICKDRIVE_TOKEN` | Sim | — | Token de sessão do Tavola, sem o prefixo `Bearer` |
+| `CLICKDRIVE_CONCURRENCY` | Não | `4` | Máximo de requisições (upload/criação de pasta) em paralelo |
+| `CLICKDRIVE_MAX_RETRIES` | Não | `3` | Tentativas extras em erros transitórios (5xx, timeout, rede) |
+| `CLICKDRIVE_RETRY_BASE_MS` | Não | `500` | Atraso base (ms) do backoff exponencial entre tentativas |
+| `CLICKDRIVE_RESET_STATE` | Não | `false` | Se `true`, ignora o checkpoint de retomada e migra tudo do zero |
+
+### Retomada de migrações interrompidas
+
+A cada pasta criada ou arquivo enviado com sucesso, o script grava um checkpoint em `./.clickdrive-migrator-state/<hash-do-caminho>.jsonl` (um arquivo por caminho migrado). Se a execução for interrompida — queda de energia, perda de rede, `Ctrl+C` — basta rodar o **mesmo comando novamente**: tudo que já foi migrado com sucesso é reconhecido pelo checkpoint e pulado (sem nova chamada à API), e a migração continua apenas nos itens pendentes.
+
+Esse checkpoint é local ao script (não é uma consulta à ClickDrive, que não expõe busca por nome), então ele só sabe o que **este** processo já migrou. Um conflito de nome com algo que já existia na ClickDrive antes, ou criado por outra via, continua caindo no fluxo de duplicidade descrito abaixo.
+
+Para forçar uma migração do zero, ignorando qualquer checkpoint existente, defina `CLICKDRIVE_RESET_STATE=true` ou apague o arquivo correspondente em `.clickdrive-migrator-state/`.
+
+### Migrações com muitos arquivos
+
+Para não sobrecarregar a api-clickdrive em migrações grandes, os uploads e criações de pasta respeitam um limite de concorrência (`CLICKDRIVE_CONCURRENCY`, padrão 4 requisições simultâneas) e falhas transitórias (erros `5xx`, timeout ou de rede) são reenviadas automaticamente com backoff exponencial (`CLICKDRIVE_MAX_RETRIES` tentativas, começando em `CLICKDRIVE_RETRY_BASE_MS`). Erros definitivos (`401`, `403`, `404`, `409`, `413`, `422`) não são reenviados, `409` segue o fluxo de duplicidade descrito abaixo, os demais contam como falha.
 
 ### Como obter o `CLICKDRIVE_TOKEN`
 

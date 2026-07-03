@@ -1,3 +1,6 @@
+# Checkpoint de migracao (estado local de retomada)
+.clickdrive-migrator-state/
+
 # Logs
 logs
 *.log
