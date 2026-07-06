@@ -5,8 +5,12 @@ const { ApiError } = require('./clickdriveClient');
 const { countFiles } = require('./discovery');
 const { ConcurrencyLimiter } = require('./concurrencyLimiter');
 const { withRetry } = require('./retry');
+const { DUPLICATED_FOLDER_NAME } = require('./constants');
 
-const DUPLICATED_FOLDER_NAME = 'duplicated';
+// Numero maximo de filhos de uma mesma pasta processados de uma vez durante a travessia.
+// Independente do limite de requisicoes simultaneas (this.limiter), evita criar milhares
+// de Promises pendentes de uma vez em pastas muito largas.
+const TRAVERSAL_BATCH_SIZE = 200;
 
 class Migrator {
   constructor(client, logger, checkpoint, { concurrency = 4, maxRetries = 3, retryBaseMs = 500 } = {}) {
@@ -43,7 +47,14 @@ class Migrator {
       return;
     }
 
-    await Promise.all(node.children.map((child) => this.migrateNode(child, result.id)));
+    await this.migrateChildren(node.children, result.id);
+  }
+
+  async migrateChildren(children, ancestorId) {
+    for (let i = 0; i < children.length; i += TRAVERSAL_BATCH_SIZE) {
+      const batch = children.slice(i, i + TRAVERSAL_BATCH_SIZE);
+      await Promise.all(batch.map((child) => this.migrateNode(child, ancestorId)));
+    }
   }
 
   callWithLimits(name, fn) {
@@ -117,10 +128,25 @@ class Migrator {
   moveToDuplicated(absolutePath) {
     const duplicatedDir = path.join(path.dirname(absolutePath), DUPLICATED_FOLDER_NAME);
     fs.mkdirSync(duplicatedDir, { recursive: true });
-    const destination = path.join(duplicatedDir, path.basename(absolutePath));
+    const destination = uniqueDestination(duplicatedDir, path.basename(absolutePath));
     fs.renameSync(absolutePath, destination);
     return destination;
   }
+}
+
+function uniqueDestination(dir, name) {
+  const candidate = path.join(dir, name);
+  if (!fs.existsSync(candidate)) return candidate;
+
+  const ext = path.extname(name);
+  const base = path.basename(name, ext);
+  let counter = 1;
+  let next;
+  do {
+    next = path.join(dir, `${base} (${counter})${ext}`);
+    counter += 1;
+  } while (fs.existsSync(next));
+  return next;
 }
 
 module.exports = { Migrator };

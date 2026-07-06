@@ -9,7 +9,8 @@ class ConcurrencyLimiter {
     return new Promise((resolve, reject) => {
       const task = () => {
         this.active += 1;
-        fn()
+        Promise.resolve()
+          .then(fn)
           .then(resolve, reject)
           .finally(() => {
             this.active -= 1;

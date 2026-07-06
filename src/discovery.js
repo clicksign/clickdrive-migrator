@@ -2,9 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { STATE_DIR_NAME } = require('./checkpoint');
+const { DUPLICATED_FOLDER_NAME } = require('./constants');
 
 // Diretorios gerados pelo proprio script; nunca devem ser migrados como conteudo do usuario.
-const IGNORED_DIR_NAMES = new Set([STATE_DIR_NAME, 'logs']);
+const IGNORED_DIR_NAMES = new Set([STATE_DIR_NAME, 'logs', DUPLICATED_FOLDER_NAME]);
 
 function discover(inputPath) {
   const absolutePath = path.resolve(inputPath);
