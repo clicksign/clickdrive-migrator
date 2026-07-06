@@ -1,14 +1,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { STATE_DIR_NAME } = require('./checkpoint');
 const { DUPLICATED_FOLDER_NAME } = require('./constants');
 
-// Diretorios gerados pelo proprio script; nunca devem ser migrados como conteudo do usuario.
-const IGNORED_DIR_NAMES = new Set([STATE_DIR_NAME, 'logs', DUPLICATED_FOLDER_NAME]);
-
-function discover(inputPath) {
+function discover(inputPath, { ignoredAbsolutePaths = [] } = {}) {
   const absolutePath = path.resolve(inputPath);
+  const ignoredSet = new Set(ignoredAbsolutePaths);
   const stat = fs.statSync(absolutePath);
 
   if (stat.isFile()) {
@@ -16,22 +13,27 @@ function discover(inputPath) {
   }
 
   if (stat.isDirectory()) {
-    return buildFolderNode(absolutePath);
+    return buildFolderNode(absolutePath, ignoredSet);
   }
 
   throw new Error(`Caminho nao e um arquivo nem uma pasta: ${absolutePath}`);
 }
 
-function buildFolderNode(absolutePath) {
+function buildFolderNode(absolutePath, ignoredSet) {
   const entries = fs.readdirSync(absolutePath, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
 
   const children = [];
   for (const entry of entries) {
-    if (entry.isDirectory() && IGNORED_DIR_NAMES.has(entry.name)) continue;
-
     const entryPath = path.join(absolutePath, entry.name);
+
+    // "duplicated" e reservado para o fluxo de conflito e pode aparecer em qualquer
+    // profundidade da arvore; os diretorios gerados pelo script (logs, checkpoint) sao
+    // sempre relativos ao cwd, entao sao ignorados so pelo caminho absoluto exato -
+    // nunca pelo nome, que poderia colidir com uma pasta legitima do usuario.
+    if (entry.isDirectory() && (entry.name === DUPLICATED_FOLDER_NAME || ignoredSet.has(entryPath))) continue;
+
     if (entry.isDirectory()) {
-      children.push(buildFolderNode(entryPath));
+      children.push(buildFolderNode(entryPath, ignoredSet));
     } else if (entry.isFile()) {
       children.push({ type: 'file', name: entry.name, absolutePath: entryPath });
     }

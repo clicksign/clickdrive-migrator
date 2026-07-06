@@ -1,4 +1,4 @@
-const fs = require('node:fs');
+const fs = require('node:fs/promises');
 
 class ApiError extends Error {
   constructor(status, body) {
@@ -32,7 +32,7 @@ class ClickDriveClient {
   }
 
   async uploadFile({ filePath, name, ancestorId }) {
-    const buffer = fs.readFileSync(filePath);
+    const buffer = await fs.readFile(filePath);
     const form = new FormData();
     form.append('file', new Blob([buffer]), name);
     form.append('name', name);

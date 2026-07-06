@@ -6,6 +6,8 @@ function createLogger(logDir) {
   const fileName = `migration-${new Date().toISOString().replace(/[:.]/g, '-')}.log`;
   const filePath = path.join(logDir, fileName);
 
+  let fileWritable = true;
+
   function write(level, message) {
     const line = `[${new Date().toISOString()}] [${level}] ${message}`;
     if (level === 'ERROR') {
@@ -13,7 +15,14 @@ function createLogger(logDir) {
     } else {
       console.log(line);
     }
-    fs.appendFileSync(filePath, line + '\n');
+
+    if (!fileWritable) return;
+    try {
+      fs.appendFileSync(filePath, line + '\n');
+    } catch (err) {
+      fileWritable = false;
+      console.error(`Nao foi possivel escrever no arquivo de log "${filePath}" (${err.message}). Log continuara so no console.`);
+    }
   }
 
   return {

@@ -2,9 +2,12 @@ const { ApiError } = require('./clickdriveClient');
 
 function isRetryable(err) {
   if (err instanceof ApiError) {
-    return err.status === 429 || err.status >= 500;
+    return err.status === 408 || err.status === 429 || err.status >= 500;
   }
-  return true;
+  // fetch/undici sinaliza qualquer falha de rede (DNS, conexao recusada, timeout,
+  // socket resetado) como TypeError com essa mensagem exata. Erros de programacao
+  // (TypeError por bug interno, validacao, etc.) nao devem ser reenviados.
+  return err instanceof TypeError && err.message === 'fetch failed';
 }
 
 function sleep(ms) {

@@ -6,7 +6,7 @@ const { createLogger } = require('./logger');
 const { discover } = require('./discovery');
 const { ClickDriveClient } = require('./clickdriveClient');
 const { Migrator } = require('./migrator');
-const { stateFilePathFor, loadCheckpoint, CheckpointStore, resetCheckpoint } = require('./checkpoint');
+const { STATE_DIR_NAME, stateFilePathFor, loadCheckpoint, CheckpointStore, resetCheckpoint } = require('./checkpoint');
 
 async function main(argv) {
   const inputPath = argv[2];
@@ -22,7 +22,10 @@ async function main(argv) {
     return 1;
   }
 
-  const logger = createLogger(path.resolve(process.cwd(), 'logs'));
+  const logsDir = path.resolve(process.cwd(), 'logs');
+  const stateDir = path.join(process.cwd(), STATE_DIR_NAME);
+
+  const logger = createLogger(logsDir);
 
   let config;
   try {
@@ -36,7 +39,7 @@ async function main(argv) {
 
   let rootNode;
   try {
-    rootNode = discover(absoluteInputPath);
+    rootNode = discover(absoluteInputPath, { ignoredAbsolutePaths: [logsDir, stateDir] });
   } catch (err) {
     logger.error(`Falha ao descobrir arquivos: ${err.message}`);
     return 1;
