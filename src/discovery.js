@@ -6,6 +6,13 @@ const { DUPLICATED_FOLDER_NAME } = require('./constants');
 function discover(inputPath, { ignoredAbsolutePaths = [], onSymlinkSkipped } = {}) {
   const absolutePath = path.resolve(inputPath);
   const ignoredSet = new Set(ignoredAbsolutePaths);
+
+  if (fs.lstatSync(absolutePath).isSymbolicLink()) {
+    throw new Error(
+      `Caminho informado e um link simbolico: ${absolutePath}. Links simbolicos nao sao suportados como raiz da migracao; informe o caminho real do arquivo ou pasta.`
+    );
+  }
+
   const stat = fs.statSync(absolutePath);
 
   if (stat.isFile()) {

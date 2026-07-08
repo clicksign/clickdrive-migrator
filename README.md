@@ -102,11 +102,11 @@ Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta 
 
 Exemplo: se `/home/usuario/financeiro/contratos/contrato1.txt` conflitar no Click.Drive, o arquivo é movido localmente para `/home/usuario/financeiro/contratos/duplicated/contrato1.txt`.
 
-O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração** — sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
+O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração**, sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
 
 ### Symlinks
 
-Links simbólicos (arquivos ou pastas) encontrados na árvore migrada não são enviados ao Click.Drive — o script registra um aviso (`warn`) no log para cada um encontrado, mas o conteúdo do link não é migrado.
+Links simbólicos (arquivos ou pastas) encontrados na árvore migrada não são enviados ao Click.Drive, o script registra um aviso (`warn`) no log para cada um encontrado, mas o conteúdo do link não é migrado. Se o **próprio caminho informado** ao script for um link simbólico, a migração falha imediatamente com uma mensagem de erro (o link não é seguido nesse caso).
 
 ### Logs
 
