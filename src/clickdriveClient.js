@@ -33,6 +33,21 @@ class ClickDriveClient {
     return parseResponse(response);
   }
 
+  async listWorkspace({ ancestorId, cursor } = {}) {
+    const url = new URL(`${this.apiUrl}/api/v1/workspace`);
+    if (ancestorId) url.searchParams.set('ancestor_id', ancestorId);
+    if (cursor) url.searchParams.set('cursor', cursor);
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: this.token,
+      },
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
+    });
+
+    return parseResponse(response);
+  }
+
   async uploadFile({ filePath, name, ancestorId }) {
     const buffer = await fs.readFile(filePath);
     const form = new FormData();
