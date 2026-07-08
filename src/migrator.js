@@ -1,4 +1,3 @@
-const fs = require('node:fs');
 const path = require('node:path');
 
 const { ApiError } = require('./clickdriveClient');
@@ -20,6 +19,7 @@ class Migrator {
     this.maxRetries = maxRetries;
     this.retryBaseMs = retryBaseMs;
     this.limiter = new ConcurrencyLimiter(concurrency);
+    this.duplicatedFolderPromises = new Map();
     this.stats = {
       foldersCreated: 0,
       foldersResumed: 0,
@@ -86,16 +86,20 @@ class Migrator {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         try {
-          const destination = this.moveToDuplicated(node.absolutePath);
+          const duplicatedId = await this.getOrCreateDuplicatedFolder(node.absolutePath, ancestorId);
+          const folder = await this.callWithLimits(node.name, () =>
+            this.client.createFolder({ name: node.name, ancestorId: duplicatedId })
+          );
           this.logger.warn(
-            `Duplicidade no ClickDrive ao criar pasta "${node.name}". Pasta local movida para "${destination}"; conteudo nao sera migrado nesta execucao.`
+            `Duplicidade no ClickDrive ao criar pasta "${node.name}". Pasta criada dentro de "${DUPLICATED_FOLDER_NAME}" no ClickDrive (id=${folder.id}).`
           );
           this.stats.filesDuplicated += countFiles(node);
-          return { skip: true };
-        } catch (moveErr) {
+          this.checkpoint.record({ path: node.absolutePath, type: 'folder', id: folder.id });
+          return { id: folder.id };
+        } catch (dupErr) {
           const skipped = countFiles(node);
           this.logger.error(
-            `Duplicidade no ClickDrive ao criar pasta "${node.name}", mas falha ao mover localmente para "${DUPLICATED_FOLDER_NAME}": ${moveErr.message}. ${skipped} arquivo(s) dentro dela nao serao migrados.`
+            `Duplicidade no ClickDrive ao criar pasta "${node.name}", mas falha ao criar em "${DUPLICATED_FOLDER_NAME}" no ClickDrive: ${dupErr.message}. ${skipped} arquivo(s) dentro dela nao serao migrados.`
           );
           this.stats.filesFailed += skipped;
           return { skip: true };
@@ -125,12 +129,18 @@ class Migrator {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         try {
-          const destination = this.moveToDuplicated(node.absolutePath);
-          this.logger.warn(`Duplicidade no ClickDrive ao enviar arquivo "${node.name}". Arquivo movido localmente para "${destination}".`);
+          const duplicatedId = await this.getOrCreateDuplicatedFolder(node.absolutePath, ancestorId);
+          const file = await this.callWithLimits(node.name, () =>
+            this.client.uploadFile({ filePath: node.absolutePath, name: node.name, ancestorId: duplicatedId })
+          );
+          this.logger.warn(
+            `Duplicidade no ClickDrive ao enviar arquivo "${node.name}". Arquivo enviado para "${DUPLICATED_FOLDER_NAME}" no ClickDrive (id=${file.id}).`
+          );
           this.stats.filesDuplicated += 1;
-        } catch (moveErr) {
+          this.checkpoint.record({ path: node.absolutePath, type: 'file', id: file.id });
+        } catch (dupErr) {
           this.logger.error(
-            `Duplicidade no ClickDrive ao enviar arquivo "${node.name}", mas falha ao mover localmente para "${DUPLICATED_FOLDER_NAME}": ${moveErr.message}.`
+            `Duplicidade no ClickDrive ao enviar arquivo "${node.name}", mas falha ao enviar para "${DUPLICATED_FOLDER_NAME}" no ClickDrive: ${dupErr.message}.`
           );
           this.stats.filesFailed += 1;
         }
@@ -141,28 +151,55 @@ class Migrator {
     }
   }
 
-  moveToDuplicated(absolutePath) {
-    const duplicatedDir = path.join(path.dirname(absolutePath), DUPLICATED_FOLDER_NAME);
-    fs.mkdirSync(duplicatedDir, { recursive: true });
-    const destination = uniqueDestination(duplicatedDir, path.basename(absolutePath));
-    fs.renameSync(absolutePath, destination);
-    return destination;
+  // Chave sintetica (nunca colide com um node real: "duplicated" e um nome
+  // reservado que a descoberta local ja ignora) usada tanto para cache em
+  // memoria durante a execucao atual quanto para retomada via checkpoint.
+  getOrCreateDuplicatedFolder(absolutePath, ancestorId) {
+    const key = path.join(path.dirname(absolutePath), DUPLICATED_FOLDER_NAME);
+
+    const cached = this.checkpoint.get(key);
+    if (cached) return Promise.resolve(cached.id);
+
+    if (!this.duplicatedFolderPromises.has(key)) {
+      const promise = this.createOrFindDuplicatedFolder(key, ancestorId).catch((err) => {
+        this.duplicatedFolderPromises.delete(key);
+        throw err;
+      });
+      this.duplicatedFolderPromises.set(key, promise);
+    }
+
+    return this.duplicatedFolderPromises.get(key);
   }
-}
 
-function uniqueDestination(dir, name) {
-  const candidate = path.join(dir, name);
-  if (!fs.existsSync(candidate)) return candidate;
+  async createOrFindDuplicatedFolder(key, ancestorId) {
+    try {
+      const folder = await this.callWithLimits(DUPLICATED_FOLDER_NAME, () =>
+        this.client.createFolder({ name: DUPLICATED_FOLDER_NAME, ancestorId })
+      );
+      this.checkpoint.record({ path: key, type: 'folder', id: folder.id });
+      return folder.id;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const existingId = await this.findChildIdByName(ancestorId, DUPLICATED_FOLDER_NAME);
+        if (existingId) {
+          this.checkpoint.record({ path: key, type: 'folder', id: existingId });
+          return existingId;
+        }
+      }
+      throw err;
+    }
+  }
 
-  const ext = path.extname(name);
-  const base = path.basename(name, ext);
-  let counter = 1;
-  let next;
-  do {
-    next = path.join(dir, `${base} (${counter})${ext}`);
-    counter += 1;
-  } while (fs.existsSync(next));
-  return next;
+  async findChildIdByName(ancestorId, name) {
+    let cursor;
+    do {
+      const page = await this.callWithLimits(`listWorkspace:${name}`, () => this.client.listWorkspace({ ancestorId, cursor }));
+      const match = page.nodes.find((n) => n.type === 'folder' && n.name === name);
+      if (match) return match.id;
+      cursor = page.next_cursor;
+    } while (cursor);
+    return null;
+  }
 }
 
 module.exports = { Migrator };

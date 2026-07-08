@@ -77,7 +77,7 @@ async function main(argv) {
   }
 
   logger.info(
-    `Migracao finalizada. Pastas criadas: ${stats.foldersCreated} (retomadas: ${stats.foldersResumed}). Arquivos enviados: ${stats.filesUploaded} (retomados: ${stats.filesResumed}). Duplicados (movidos localmente): ${stats.filesDuplicated}. Falhas: ${stats.filesFailed}. Log completo em ${logger.filePath}`
+    `Migracao finalizada. Pastas criadas: ${stats.foldersCreated} (retomadas: ${stats.foldersResumed}). Arquivos enviados: ${stats.filesUploaded} (retomados: ${stats.filesResumed}). Duplicados (movidos para "duplicated" no ClickDrive): ${stats.filesDuplicated}. Falhas: ${stats.filesFailed}. Log completo em ${logger.filePath}`
   );
 
   return stats.filesFailed > 0 ? 1 : 0;

@@ -98,11 +98,11 @@ node script-main.js "/home/usuario/financeiro"
 
 ### Duplicidade
 
-Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta com o mesmo nome naquele local), o script **não** tenta reenviar o item para o Click.Drive. Em vez disso, ele move o arquivo (ou a pasta inteira, com seu conteúdo) para uma subpasta `duplicated` criada **no próprio caminho local**, ao lado do item original, e segue migrando o restante normalmente.
+Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta com o mesmo nome naquele local), o script **não** tenta reenviar o item para o mesmo destino. Em vez disso, ele garante uma subpasta `duplicated` **no Click.Drive**, no mesmo local remoto onde ocorreu o conflito, cria/envia o item (arquivo ou pasta, com seu conteúdo) dentro dela, e segue migrando o restante normalmente. O arquivo/pasta local não é movido ou alterado.
 
-Exemplo: se `/home/usuario/financeiro/contratos/contrato1.txt` conflitar no Click.Drive, o arquivo é movido localmente para `/home/usuario/financeiro/contratos/duplicated/contrato1.txt`.
+Exemplo: se `/home/usuario/financeiro/contratos/contrato1.txt` conflitar no Click.Drive dentro da pasta `contratos`, o arquivo é enviado para uma pasta `duplicated` criada no Click.Drive dentro de `contratos`.
 
-O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração**, sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
+O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta local com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração**, sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
 
 ### Symlinks
 
