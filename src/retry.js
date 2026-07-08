@@ -4,6 +4,9 @@ function isRetryable(err) {
   if (err instanceof ApiError) {
     return err.status === 408 || err.status === 429 || err.status >= 500;
   }
+  // AbortSignal.timeout() faz o fetch rejeitar com essa DOMException quando o
+  // timeout de requisicao (CLICKDRIVE_REQUEST_TIMEOUT_MS) estoura.
+  if (err.name === 'TimeoutError') return true;
   // fetch/undici sinaliza qualquer falha de rede (DNS, conexao recusada, timeout,
   // socket resetado) como TypeError com essa mensagem exata. Erros de programacao
   // (TypeError por bug interno, validacao, etc.) nao devem ser reenviados.

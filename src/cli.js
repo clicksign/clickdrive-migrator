@@ -39,7 +39,10 @@ async function main(argv) {
 
   let rootNode;
   try {
-    rootNode = discover(absoluteInputPath, { ignoredAbsolutePaths: [logsDir, stateDir] });
+    rootNode = discover(absoluteInputPath, {
+      ignoredAbsolutePaths: [logsDir, stateDir],
+      onSymlinkSkipped: (entryPath) => logger.warn(`Symlink ignorado (nao sera migrado): "${entryPath}"`),
+    });
   } catch (err) {
     logger.error(`Falha ao descobrir arquivos: ${err.message}`);
     return 1;

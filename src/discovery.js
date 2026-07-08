@@ -3,7 +3,7 @@ const path = require('node:path');
 
 const { DUPLICATED_FOLDER_NAME } = require('./constants');
 
-function discover(inputPath, { ignoredAbsolutePaths = [] } = {}) {
+function discover(inputPath, { ignoredAbsolutePaths = [], onSymlinkSkipped } = {}) {
   const absolutePath = path.resolve(inputPath);
   const ignoredSet = new Set(ignoredAbsolutePaths);
   const stat = fs.statSync(absolutePath);
@@ -13,13 +13,13 @@ function discover(inputPath, { ignoredAbsolutePaths = [] } = {}) {
   }
 
   if (stat.isDirectory()) {
-    return buildFolderNode(absolutePath, ignoredSet);
+    return buildFolderNode(absolutePath, ignoredSet, onSymlinkSkipped);
   }
 
   throw new Error(`Caminho nao e um arquivo nem uma pasta: ${absolutePath}`);
 }
 
-function buildFolderNode(absolutePath, ignoredSet) {
+function buildFolderNode(absolutePath, ignoredSet, onSymlinkSkipped) {
   const entries = fs.readdirSync(absolutePath, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
 
   const children = [];
@@ -33,9 +33,11 @@ function buildFolderNode(absolutePath, ignoredSet) {
     if (entry.isDirectory() && (entry.name === DUPLICATED_FOLDER_NAME || ignoredSet.has(entryPath))) continue;
 
     if (entry.isDirectory()) {
-      children.push(buildFolderNode(entryPath, ignoredSet));
+      children.push(buildFolderNode(entryPath, ignoredSet, onSymlinkSkipped));
     } else if (entry.isFile()) {
       children.push({ type: 'file', name: entry.name, absolutePath: entryPath });
+    } else if (entry.isSymbolicLink() && onSymlinkSkipped) {
+      onSymlinkSkipped(entryPath);
     }
   }
 

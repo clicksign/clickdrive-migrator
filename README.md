@@ -53,6 +53,7 @@ copy .env.example .env
 | `CLICKDRIVE_CONCURRENCY` | Não | `4` | Máximo de requisições (upload/criação de pasta) em paralelo |
 | `CLICKDRIVE_MAX_RETRIES` | Não | `3` | Tentativas extras em erros transitórios (5xx, timeout, rede) |
 | `CLICKDRIVE_RETRY_BASE_MS` | Não | `500` | Atraso base (ms) do backoff exponencial entre tentativas |
+| `CLICKDRIVE_REQUEST_TIMEOUT_MS` | Não | `30000` | Tempo máximo (ms) de espera por uma requisição antes de considerá-la falha (conta como erro transitório, reenviada com backoff) |
 | `CLICKDRIVE_RESET_STATE` | Não | `false` | Se `true`, ignora o checkpoint de retomada e migra tudo do zero |
 
 ### Retomada de migrações interrompidas
@@ -100,6 +101,12 @@ node script-main.js "/home/usuario/financeiro"
 Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta com o mesmo nome naquele local), o script **não** tenta reenviar o item para o Click.Drive. Em vez disso, ele move o arquivo (ou a pasta inteira, com seu conteúdo) para uma subpasta `duplicated` criada **no próprio caminho local**, ao lado do item original, e segue migrando o restante normalmente.
 
 Exemplo: se `/home/usuario/financeiro/contratos/contrato1.txt` conflitar no Click.Drive, o arquivo é movido localmente para `/home/usuario/financeiro/contratos/duplicated/contrato1.txt`.
+
+O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração** — sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
+
+### Symlinks
+
+Links simbólicos (arquivos ou pastas) encontrados na árvore migrada não são enviados ao Click.Drive — o script registra um aviso (`warn`) no log para cada um encontrado, mas o conteúdo do link não é migrado.
 
 ### Logs
 

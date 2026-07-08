@@ -21,6 +21,7 @@ function loadConfig() {
     concurrency: parseIntEnv('CLICKDRIVE_CONCURRENCY', 4),
     maxRetries: parseIntEnv('CLICKDRIVE_MAX_RETRIES', 3),
     retryBaseMs: parseIntEnv('CLICKDRIVE_RETRY_BASE_MS', 500),
+    requestTimeoutMs: parseIntEnv('CLICKDRIVE_REQUEST_TIMEOUT_MS', 30000),
     resetState: process.env.CLICKDRIVE_RESET_STATE === 'true',
   };
 }

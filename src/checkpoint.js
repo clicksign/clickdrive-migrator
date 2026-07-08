@@ -29,6 +29,7 @@ class CheckpointStore {
   constructor(stateFilePath, initialEntries = new Map()) {
     this.stateFilePath = stateFilePath;
     this.entries = initialEntries;
+    fs.mkdirSync(path.dirname(this.stateFilePath), { recursive: true });
   }
 
   has(absolutePath) {
@@ -41,7 +42,6 @@ class CheckpointStore {
 
   record(entry) {
     this.entries.set(entry.path, entry);
-    fs.mkdirSync(path.dirname(this.stateFilePath), { recursive: true });
     fs.appendFileSync(this.stateFilePath, `${JSON.stringify(entry)}\n`);
   }
 }

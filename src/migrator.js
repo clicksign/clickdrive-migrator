@@ -85,12 +85,21 @@ class Migrator {
       return { id: folder.id };
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const destination = this.moveToDuplicated(node.absolutePath);
-        this.logger.warn(
-          `Duplicidade no ClickDrive ao criar pasta "${node.name}". Pasta local movida para "${destination}"; conteudo nao sera migrado nesta execucao.`
-        );
-        this.stats.filesDuplicated += countFiles(node);
-        return { skip: true };
+        try {
+          const destination = this.moveToDuplicated(node.absolutePath);
+          this.logger.warn(
+            `Duplicidade no ClickDrive ao criar pasta "${node.name}". Pasta local movida para "${destination}"; conteudo nao sera migrado nesta execucao.`
+          );
+          this.stats.filesDuplicated += countFiles(node);
+          return { skip: true };
+        } catch (moveErr) {
+          const skipped = countFiles(node);
+          this.logger.error(
+            `Duplicidade no ClickDrive ao criar pasta "${node.name}", mas falha ao mover localmente para "${DUPLICATED_FOLDER_NAME}": ${moveErr.message}. ${skipped} arquivo(s) dentro dela nao serao migrados.`
+          );
+          this.stats.filesFailed += skipped;
+          return { skip: true };
+        }
       }
       const skipped = countFiles(node);
       this.logger.error(`Falha ao criar pasta "${node.name}": ${err.message}. ${skipped} arquivo(s) dentro dela nao serao migrados.`);
@@ -115,9 +124,16 @@ class Migrator {
       this.checkpoint.record({ path: node.absolutePath, type: 'file', id: file.id });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const destination = this.moveToDuplicated(node.absolutePath);
-        this.logger.warn(`Duplicidade no ClickDrive ao enviar arquivo "${node.name}". Arquivo movido localmente para "${destination}".`);
-        this.stats.filesDuplicated += 1;
+        try {
+          const destination = this.moveToDuplicated(node.absolutePath);
+          this.logger.warn(`Duplicidade no ClickDrive ao enviar arquivo "${node.name}". Arquivo movido localmente para "${destination}".`);
+          this.stats.filesDuplicated += 1;
+        } catch (moveErr) {
+          this.logger.error(
+            `Duplicidade no ClickDrive ao enviar arquivo "${node.name}", mas falha ao mover localmente para "${DUPLICATED_FOLDER_NAME}": ${moveErr.message}.`
+          );
+          this.stats.filesFailed += 1;
+        }
       } else {
         this.logger.error(`Falha ao enviar "${node.name}": ${err.message}`);
         this.stats.filesFailed += 1;

@@ -10,9 +10,10 @@ class ApiError extends Error {
 }
 
 class ClickDriveClient {
-  constructor({ apiUrl, token }) {
+  constructor({ apiUrl, token, requestTimeoutMs = 30000 }) {
     this.apiUrl = apiUrl;
     this.token = token;
+    this.requestTimeoutMs = requestTimeoutMs;
   }
 
   async createFolder({ name, ancestorId }) {
@@ -26,6 +27,7 @@ class ClickDriveClient {
         name,
         ...(ancestorId ? { ancestor_id: ancestorId } : {}),
       }),
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
 
     return parseResponse(response);
@@ -44,6 +46,7 @@ class ClickDriveClient {
         Authorization: this.token,
       },
       body: form,
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
 
     return parseResponse(response);
