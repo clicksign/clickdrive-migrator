@@ -96,6 +96,17 @@ node script-main.js "/home/usuario/financeiro"
 - Se o caminho informado for um **arquivo**, ele é enviado diretamente para a raiz do workspace no Click.Drive.
 - Se o caminho informado for uma **pasta**, o script cria essa pasta na raiz do workspace e replica toda a árvore de subpastas e arquivos dentro dela, criando cada pasta necessária antes de enviar seus arquivos.
 
+### Listar workspace
+
+O script auxiliar `scripts/list-workspace.js` lista a árvore de pastas e arquivos já existente no workspace do Click.Drive (estilo `tree`), útil para conferir o resultado de uma migração. Usa as mesmas variáveis de ambiente do migrador (`.env`: `CLICKDRIVE_API_URL`, `CLICKDRIVE_TOKEN`).
+
+```bash
+node scripts/list-workspace.js                  # lista a árvore inteira a partir da raiz
+node scripts/list-workspace.js <ancestor_id>     # lista a árvore a partir de uma pasta específica
+```
+
+Ao final, exibe a contagem total de pastas e arquivos encontrados.
+
 ### Duplicidade
 
 Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta com o mesmo nome naquele local), o script **não** tenta reenviar o item para o mesmo destino. Em vez disso, ele garante uma subpasta `duplicated` **no Click.Drive**, no mesmo local remoto onde ocorreu o conflito, cria/envia o item (arquivo ou pasta, com seu conteúdo) dentro dela, e segue migrando o restante normalmente. O arquivo/pasta local não é movido ou alterado.
@@ -103,10 +114,6 @@ Quando a api-clickdrive responde `409 Conflict` (já existe um arquivo ou pasta 
 Exemplo: se `/home/usuario/financeiro/contratos/contrato1.txt` conflitar no Click.Drive dentro da pasta `contratos`, o arquivo é enviado para uma pasta `duplicated` criada no Click.Drive dentro de `contratos`.
 
 O nome `duplicated` é reservado pelo script em qualquer nível da árvore migrada: se você já tiver uma pasta local com esse nome (criada por você, não pelo script), ela é **inteiramente ignorada na migração**, sem aviso no console, sem contar como falha nas estatísticas finais. Como essa exclusão acontece na leitura da árvore local, `CLICKDRIVE_RESET_STATE=true` não resolve o caso, já que ele só limpa o checkpoint de retomada, não muda quais pastas são consideradas na travessia. Se você tiver uma pasta `duplicated` legítima, renomeie-a antes de migrar.
-
-### Symlinks
-
-Links simbólicos (arquivos ou pastas) encontrados na árvore migrada não são enviados ao Click.Drive, o script registra um aviso (`warn`) no log para cada um encontrado, mas o conteúdo do link não é migrado. Se o **próprio caminho informado** ao script for um link simbólico, a migração falha imediatamente com uma mensagem de erro (o link não é seguido nesse caso).
 
 ### Logs
 
