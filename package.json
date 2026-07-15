@@ -1,0 +1,18 @@
+{
+  "name": "clickdrive-migrator",
+  "version": "0.1.0",
+  "description": "Migrador de documentos: envia arquivos e pastas locais para o ClickDrive via api-clickdrive.",
+  "main": "script-main.js",
+  "bin": {
+    "clickdrive-migrator": "./script-main.js"
+  },
+  "scripts": {
+    "start": "node script-main.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}
